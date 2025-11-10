@@ -1,0 +1,5 @@
+*.csv
+*.log
+*dat
+bin/
+data
