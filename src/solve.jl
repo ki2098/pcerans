@@ -1,4 +1,9 @@
-using JSON, CSV, DataFrames
+module PdRans
+
+using CSV
+using DataFrames
+using Printf
+using Dates
 
 include("eq.jl")
 include("rans.jl")
@@ -41,22 +46,20 @@ struct Solver
     dx
     dy
     dt
-    Re
+    nu
     sz
     gc
     maxstep
 end
 
-function init(path)
+function init(params)
     gc = 2
-    init_json = JSON.parsefile(path)
-    domain_json = init_json["domain"]
-    xmin = domain_json["x range"][1]
-    xmax = domain_json["x range"][2]
-    ymin = domain_json["y range"][1]
-    ymax = domain_json["y range"][2]
-    nx = domain_json["divisions"][1]
-    ny = domain_json["divisions"][2]
+    xmin = params["x range"][1]
+    xmax = params["x range"][2]
+    ymin = params["y range"][1]
+    ymax = params["y range"][2]
+    nx = params["divisions"][1]
+    ny = params["divisions"][2]
     sz = (nx + 2*gc, ny + 2*gc)
     dx = (xmax - xmin)/nx
     dy = (ymax - ymin)/ny
@@ -67,24 +70,26 @@ function init(path)
     println("\tdivison = ($(sz[1]-2*gc) $(sz[2]-2*gc))")
     println("\tcell size = ($dx, $dy)")
 
-    time_json = init_json["time"]
-    maxtime = time_json["end"]
-    dt = time_json["dt"]
+    maxtime = params["T"]
+    dt = params["dt"]
     maxstep::Int = maxtime/dt
     println("TIME INFO")
     println("\tend time = $maxtime")
     println("\tdt = $dt")
     println("\ttotal steps = $maxstep")
 
-    Re = init_json["cfd"]["Re"]
+    nu = params["nu"]
     println("CFD INFO")
-    println("\tRe = $Re")
+    println("\tnu = $nu")
 
-    inlet_json = init_json["inlet"]
-    uin = inlet_json["u"]
-    kin = inlet_json["k"]
-    ωin = inlet_json["omega"]
+    uin = params["inlet u"]
+    Iin = params["inlet I"]
+    Lm  = params["inlet Lm"]
+    kin = 1.5*(uin*Iin)^2
+    εin = βasterisk^0.75 * kin^1.5 / Lm
+    ωin = εin/(βasterisk*kin)
     println("INLET INFO")
+    println("\tI = $Iin")
     println("\tu = $uin")
     println("\tk = $kin")
     println("\tω = $ωin")
@@ -117,7 +122,7 @@ function init(path)
     fill!(k  , kin)
     fill!(ω  , ωin)
     fill!(nut, kin/ωin)
-    dfunc = prepare_dfunc(init_json["wind turbines"], x_h, y_h, dx, dy, sz)
+    dfunc = prepare_dfunc(params["wind turbines"], x_h, y_h, dx, dy, sz)
     
 
     so = Solver(
@@ -126,11 +131,11 @@ function init(path)
         divU, dfunc,
         uin, kin, ωin,
         ls,
-        x, y, dx, dy, dt, Re,
+        x, y, dx, dy, dt, nu,
         sz, gc, maxstep
     )
 
-    output_path = init_json["output"]
+    output_path = params["output"]
     println("output to $output_path")
     flush(stdout)
 
@@ -146,7 +151,7 @@ function time_integral!(so::Solver)
 
     gpu_pseudo_U!(
         so.u, so.v, so.ut, so.vt, so.uu, so.vv, so.nut, so.dfunc,
-        ls.b, so.dx, so.dy, so.dt, 1/so.Re, ls.maxdiag,
+        ls.b, so.dx, so.dy, so.dt, so.nu, ls.maxdiag,
         so.sz, so.gc, nthread
     )
     lsit, lserr = gpu_sor!(
@@ -172,7 +177,7 @@ function time_integral!(so::Solver)
     )
     gpu_kωSST2003!(
         so.k, so.ω, so.kt, so.ωt, so.u, so.v, so.uu, so.vv, so.nut,
-        1/so.Re, 1.25, so.dx, so.dy, so.dt,
+        so.nu, 1.25, so.dx, so.dy, so.dt,
         so.sz, so.gc, nthread
     )
     gpu_kbc!(
@@ -214,19 +219,43 @@ function write_csv(path::String, so::Solver)
         y_coord[i, j] = y[j]
     end
 
+    irange = gc+1:sz[1]-gc
+    jrange = gc+1:sz[2]-gc
     df = DataFrame(
-        x = vec(x_coord),
-        y = vec(y_coord),
-        z = vec(z_coord)
+        x = vec(@view x_coord[irange, jrange]),
+        y = vec(@view y_coord[irange, jrange]),
+        z = vec(@view z_coord[irange, jrange]),
+        u = vec(@view u[irange, jrange]),
+        v = vec(@view v[irange, jrange]),
+        p = vec(@view p[irange, jrange]),
+        k = vec(@view k[irange, jrange]),
+        omega = vec(@view ω[irange, jrange]),
+        nut = vec(@view nut[irange, jrange]),
+        divu = vec(@view divu[irange, jrange])
     )
-
-    df[!, :u] = vec(u)
-    df[!, :v] = vec(v)
-    df[!, :p] = vec(p)
-    df[!, :k] = vec(k)
-    df[!, :omega] = vec(ω)
-    df[!, :nut] = vec(nut)
-    df[!, :divu] = vec(divu)
     CSV.write(path, df)
     println("written to $path")
+end
+
+function solve(params)
+    solver, output_path = init(params)
+    println("start time = $(now())")
+    for step = 1:solver.maxstep
+        try
+            lsit, lserr, divmag = time_integral!(solver)
+            @printf(
+                "\rstep=%d, |div U|=%.3e, LS=(%4d, %.3e)",
+                step, divmag, lsit, lserr
+            )
+            flush(stdout)
+        catch e
+            println(e)
+            break
+        end
+    end
+    println()
+    println("end time = $(now())")
+    write_csv(output_path, solver)
+end
+
 end

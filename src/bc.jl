@@ -66,7 +66,7 @@ function kernel_pbc_x!(p, sz, gc)
     j = (blockIdx().y - 1)*blockDim().y + threadIdx().y
     if i <= 1 && gc < j <= sz[2]-gc
         p[gc, j] = p[gc+1, j]
-        p[sz[1]-gc+1, j] = 0
+        p[sz[1]-gc+1, j] = - p[sz[1]-gc, j]
     end
     nothing
 end

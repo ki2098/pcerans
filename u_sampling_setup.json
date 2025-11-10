@@ -1,0 +1,23 @@
+{
+    "x range":[-5, 19],
+    "y range":[-7.5, 7.5],
+    "divisions":[240, 150],
+
+    "inlet u":{"type":"normal", "mean":1, "sd":0.1},
+    "inlet I":0.2,
+    "inlet Lm":0.2,
+
+    "T":50,
+    "dt":5e-3,
+
+    "nu":2e-6,
+
+    "wind turbines":{
+        "C":13,
+        "diameter":1,
+        "thick":0.03,
+        "coordinates":[
+            [0, 0]
+        ]
+    }
+}
