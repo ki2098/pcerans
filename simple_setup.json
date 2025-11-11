@@ -4,7 +4,7 @@
     "divisions":[240, 150],
 
     "inlet u":1,
-    "inlet I":0.2,
+    "inlet I":0.1,
     "inlet Lm":0.2,
 
     "T":50,

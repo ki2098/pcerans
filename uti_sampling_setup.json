@@ -4,7 +4,7 @@
     "divisions":[240, 150],
 
     "inlet u":{"type":"normal", "mean":1, "sd":0.1},
-    "inlet I":0.1,
+    "inlet I":{"type":"uniform", "range":[0.05, 0.15]},
     "inlet Lm":0.2,
 
     "T":50,

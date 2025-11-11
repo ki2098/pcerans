@@ -3,6 +3,7 @@ using PolyChaos
 using DataFrames
 using CSV
 using ArgParse
+using Dates
 
 argset = ArgParseSettings()
 @add_arg_table argset begin
@@ -40,6 +41,8 @@ end
 op, scale, offset = get_op_and_transform(params["inlet u"])
 ξ = op.quad.nodes
 base_filename = "data/u_nipce_sample"
+println("ξ = $ξ")
+println("uin = $(scale)ξ + $offset")
 
 if args["samples"]
     include("src/solve.jl")
@@ -47,7 +50,7 @@ if args["samples"]
 
     uin = ξ .* scale .+ offset
     i_sample = 1
-    while i_sample <= n_samples
+    @time "$n_samples niPCE samples" while i_sample <= n_samples
         println("niPCE sample $i_sample/$n_samples")
         det_params["output"] = "$base_filename.$i_sample.csv"
         det_params["inlet u"] = uin[i_sample]
@@ -92,8 +95,9 @@ if args["statistics"]
             global y = sample_df[!, "y"]
             global z = sample_df[!, "z"]
         end
-        println("read $filename")
+        print("\rread $filename")
     end
+    println()
 
     function compute_statistics(v)
         s = zeros(cnt, 2)
@@ -113,11 +117,11 @@ if args["statistics"]
         "x"=>x,
         "y"=>y,
         "z"=>z,
-        "  E[u]"=>u_stat[:,1],
+        "E[u]"=>u_stat[:,1],
         "Var[u]"=>u_stat[:,2],
-        "  E[v]"=>v_stat[:,1],
+        "E[v]"=>v_stat[:,1],
         "Var[v]"=>v_stat[:,2],
-        "  E[p]"=>p_stat[:,1],
+        "E[p]"=>p_stat[:,1],
         "Var[p]"=>p_stat[:,2]
     )
 
