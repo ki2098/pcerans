@@ -20,12 +20,15 @@ if !args["samples"] && !args["statistics"]
     args["statistics"] = true
 end
 
-params = JSON.parsefile("u_sampling_setup.json")
+params = JSON.parsefile("uti_sampling_setup.json")
+base_filename = "data/uti_mc_sample"
 
 det_params = deepcopy(params)
 
-n_samples_few = 100
-n_samples_many = n_samples_few*10
+n_samples_few = 10
+n_samples_many = 50
+total_samples_few = n_samples_few^2
+total_samples_many = n_samples_many^2
 
 function get_dist(var)
     if var["type"] == "normal"
@@ -39,24 +42,25 @@ function get_dist(var)
 end
 
 uin = get_dist(params["inlet u"])
-base_filename = "data/u_mc_sample"
+tiin = get_dist(params["inlet I"])
 
 if args["samples"]
     include("src/solve.jl")
     using .PdRans
-
-    i_sample = 1
-    @time "$n_samples_many MC samples" while i_sample <= n_samples_many
-        println("Monte Carlo sample $i_sample/$n_samples_many")
-        det_params["output"] = "$base_filename.$i_sample.csv"
-        det_params["inlet u"] = uin[i_sample]
-        try
-            PdRans.solve(det_params)
-        catch e
-            println("err = %e, retry")
-            continue
+    @time "$total_samples_many MC samples" for I=1:n_samples_many,J=1:n_samples_many
+        sample_id = (I-1)*n_samples_many+J
+        println("Monte Carlo sample $sample_id/$total_samples_many")
+        det_params["output"] = "$base_filename.$sample_id.csv"
+        det_params["inlet u"] = uin[I]
+        det_params["inlet I"] = tiin[J]
+        while true
+            try
+                PdRans.solve(det_params)
+                break
+            catch e
+                println("err = %e, retry")
+            end
         end
-        global i_sample += 1
         println()
     end
 end
@@ -71,8 +75,8 @@ if args["statistics"]
     p_mean = zeros(cnt)
     p_var  = zeros(cnt)
     x = y = z = nothing
-    for i_sample = 1:n_samples_many
-        filename = "$base_filename.$i_sample.csv"
+    for sample_id = 1:total_samples_many
+        filename = "$base_filename.$sample_id.csv"
         sample_df = CSV.read(filename, DataFrame)
         u = sample_df[!, "u"]
         v = sample_df[!, "v"]
@@ -80,25 +84,25 @@ if args["statistics"]
         du = u - u_mean
         dv = v - v_mean
         dp = p - p_mean
-        u_mean .+= du ./ i_sample
-        v_mean .+= dv ./ i_sample
-        p_mean .+= dp ./ i_sample
+        u_mean .+= du ./ sample_id
+        v_mean .+= dv ./ sample_id
+        p_mean .+= dp ./ sample_id
         du2 = u - u_mean
         dv2 = v - v_mean
         dp2 = p - p_mean
         u_var .+= du .* du2
         v_var .+= dv .* dv2
         p_var .+= dp .* dp2
-        if i_sample == 1
+        if sample_id == 1
             global x = sample_df[!, "x"]
             global y = sample_df[!, "y"]
             global z = sample_df[!, "z"]
         end
         print("\rread $filename")
-        if i_sample == n_samples_few
-            u_var_tmp = u_var/n_samples_few
-            v_var_tmp = v_var/n_samples_few
-            p_var_tmp = p_var/n_samples_few
+        if sample_id == total_samples_few
+            u_var_tmp = u_var/total_samples_few
+            v_var_tmp = v_var/total_samples_few
+            p_var_tmp = p_var/total_samples_few
             few_df = DataFrame(
                 "x"=>x, "y"=>y, "z"=>z,
                 "E[u]"=>u_mean, "Var[u]"=>u_var_tmp,
@@ -108,9 +112,9 @@ if args["statistics"]
             CSV.write("$base_filename.statistics-few.csv", few_df)
         end
     end
-    u_var ./= n_samples_many
-    v_var ./= n_samples_many
-    p_var ./= n_samples_many
+    u_var ./= total_samples_many
+    v_var ./= total_samples_many
+    p_var ./= total_samples_many
     println()
 
     many_df = DataFrame(

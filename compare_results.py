@@ -6,12 +6,10 @@ import sys
 
 prefix = sys.argv[1]
 
-mc_samples_few = 100
-mc_samples_many = mc_samples_few*10
 
 nipce_df = pd.read_csv(f"data/{prefix}_nipce_sample.statistics.csv")
-mcfew_df = pd.read_csv(f"data/{prefix}_mc_sample.statistics{mc_samples_few}.csv")
-mcmany_df = pd.read_csv(f"data/{prefix}_mc_sample.statistics{mc_samples_many}.csv")
+mcfew_df = pd.read_csv(f"data/{prefix}_mc_sample.statistics-few.csv")
+mcmany_df = pd.read_csv(f"data/{prefix}_mc_sample.statistics-many.csv")
 det_df = pd.read_csv(f"data/{prefix}_det.csv")
 
 points = nipce_df[["x", "y"]].values
@@ -32,19 +30,23 @@ def plot_var(varname:str):
     mcmany_sample = griddata(points, mcmany_var, line)
 
     plt.figure(figsize=(5,6))
-    plt.plot(mcfew_sample, y, label=f"Monte Carlo ({mc_samples_few} samples)", color="red", linewidth=1)
-    plt.plot(mcmany_sample, y, label=f"Monte Carlo ({mc_samples_many} samples)", color="green", linewidth=4, linestyle='--', alpha=0.6)
-    plt.plot(nipce_sample, y, label=f"niPCE (10 samples)", color="blue", linewidth=1)
+    plt.plot(mcfew_sample, y, label=f"Monte Carlo ({sys.argv[2]} samples)", color="red", linewidth=1)
+    plt.scatter(mcmany_sample[::2], y[::2], label=f"Monte Carlo ({sys.argv[3]} samples)", c='green', marker='x', s=20)
+    plt.plot(nipce_sample, y, label=f"niPCE ({sys.argv[4]} samples)", color="blue", linewidth=1)
     
+    # if varname == "E[u]":
+    #     det_var = det_df["u"].values
+    #     det_sample = griddata(points, det_var, line)
+    #     plt.scatter(det_sample[::4], y[::4], label=f"deterministic run uin=E[uin]", c='black', marker='x', s=20)
     if varname == "E[u]":
-        det_var = det_df["u"].values
-        det_sample = griddata(points, det_var, line)
-        plt.scatter(det_sample[::4], y[::4], label=f"deterministic run uin=E[uin]", c='black', marker='x', s=20)
-    
+        plt.xlim(0.85, 1.05)
+    if varname == "Var[u]":
+        plt.xlim(0.005, 0.012)
     plt.xlabel(f"{varname} at x={xsample}")
     plt.ylabel("y")
     plt.grid(True)
     plt.legend(loc=2)
+    plt.title(sys.argv[5])
     plt.savefig(f"data/{prefix}_sampling_{varname}.png")
 
 plot_var("E[u]")
