@@ -4,6 +4,7 @@ using CSV
 using ArgParse
 using Dates
 using Distributions
+using Random
 
 argset = ArgParseSettings()
 @add_arg_table argset begin
@@ -13,6 +14,10 @@ argset = ArgParseSettings()
     "--statistics"
         help = "calculate statistics"
         action = :store_true
+    "n"
+        help = "number of samples per dimension"
+        required = true
+        arg_type = Int
 end
 args = parse_args(argset)
 if !args["samples"] && !args["statistics"]
@@ -20,15 +25,14 @@ if !args["samples"] && !args["statistics"]
     args["statistics"] = true
 end
 
-params = JSON.parsefile("uti_sampling_setup.json")
-base_filename = "data/uti_mc_sample"
+n_samples = args["n"]
+total_samples = n_samples^2
+
+params = JSON.parsefile("uti-sampling-setup.json")
+folder = "data/uti-mc-$(total_samples)-samples"
+mkpath(folder)
 
 det_params = deepcopy(params)
-
-n_samples_few = 10
-n_samples_many = 50
-total_samples_few = n_samples_few^2
-total_samples_many = n_samples_many^2
 
 function get_dist(var)
     if var["type"] == "normal"
@@ -37,7 +41,7 @@ function get_dist(var)
         d = Uniform(var["range"]...)
     end
     println("dist = $d")
-    x = rand(d, n_samples_many)
+    x = rand(d, n_samples)
     return x
 end
 
@@ -47,18 +51,20 @@ tiin = get_dist(params["inlet I"])
 if args["samples"]
     include("src/solve.jl")
     using .PdRans
-    @time "$total_samples_many MC samples" for I=1:n_samples_many,J=1:n_samples_many
-        sample_id = (I-1)*n_samples_many+J
-        println("Monte Carlo sample $sample_id/$total_samples_many")
-        det_params["output"] = "$base_filename.$sample_id.csv"
+    @time "$total_samples MC samples" for I=1:n_samples,J=1:n_samples
+        sample_id = (I-1)*n_samples+J
+        println("Monte Carlo sample $sample_id/$total_samples")
+        det_params["output"] = "$folder/sample-$sample_id.csv"
         det_params["inlet u"] = uin[I]
         det_params["inlet I"] = tiin[J]
         while true
             try
                 PdRans.solve(det_params)
+                # println("Lucky!")
                 break
             catch e
-                println("err = %e, retry")
+                @warn "get error=$e"
+                sleep(1)
             end
         end
         println()
@@ -75,8 +81,8 @@ if args["statistics"]
     p_mean = zeros(cnt)
     p_var  = zeros(cnt)
     x = y = z = nothing
-    for sample_id = 1:total_samples_many
-        filename = "$base_filename.$sample_id.csv"
+    for sample_id = 1:total_samples
+        filename = "$folder/sample-$sample_id.csv"
         sample_df = CSV.read(filename, DataFrame)
         u = sample_df[!, "u"]
         v = sample_df[!, "v"]
@@ -98,31 +104,19 @@ if args["statistics"]
             global y = sample_df[!, "y"]
             global z = sample_df[!, "z"]
         end
-        print("\rread $filename")
-        if sample_id == total_samples_few
-            u_var_tmp = u_var/total_samples_few
-            v_var_tmp = v_var/total_samples_few
-            p_var_tmp = p_var/total_samples_few
-            few_df = DataFrame(
-                "x"=>x, "y"=>y, "z"=>z,
-                "E[u]"=>u_mean, "Var[u]"=>u_var_tmp,
-                "E[v]"=>v_mean, "Var[v]"=>v_var_tmp,
-                "E[p]"=>p_mean, "Var[p]"=>p_var_tmp
-            )
-            CSV.write("$base_filename.statistics-few.csv", few_df)
-        end
+        print("\rread $sample_id/$total_samples")
     end
-    u_var ./= total_samples_many
-    v_var ./= total_samples_many
-    p_var ./= total_samples_many
+    u_var ./= total_samples
+    v_var ./= total_samples
+    p_var ./= total_samples
     println()
 
-    many_df = DataFrame(
+    stat_df = DataFrame(
         "x"=>x, "y"=>y, "z"=>z,
         "E[u]"=>u_mean, "Var[u]"=>u_var,
         "E[v]"=>v_mean, "Var[v]"=>v_var,
         "E[p]"=>p_mean, "Var[p]"=>p_var
     )
 
-    CSV.write("$base_filename.statistics-many.csv", many_df)
+    CSV.write("$folder/statistics.csv", stat_df)
 end

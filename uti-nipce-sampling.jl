@@ -20,13 +20,16 @@ if !args["samples"] && !args["statistics"]
     args["statistics"] = true
 end
 
-params = JSON.parsefile("uti_sampling_setup.json")
-base_filename = "data/uti_nipce_sample"
-
-det_params = deepcopy(params)
-
 degree = 5
 n_samples = degree*2
+total_samples = n_samples^2
+
+params = JSON.parsefile("uti-sampling-setup.json")
+folder = "data/uti-nipce-$(total_samples)-samples"
+mkpath(folder)
+
+
+det_params = deepcopy(params)
 
 function get_op_and_transform(var)
     if var["type"] == "normal"
@@ -58,7 +61,7 @@ if args["samples"]
     @time "$(n_samples*n_samples) niPCE samples" for I=1:n_samples, J=1:n_samples
         sample_id = (I-1)*n_samples+J
         println("niPCE sample $sample_id/$total_samples")
-        det_params["output"] = "$base_filename.$sample_id.csv"
+        det_params["output"] = "$folder/sample-$sample_id.csv"
         det_params["inlet u"] = uin[I]
         det_params["inlet I"] = tiin[J]
         while true
@@ -95,7 +98,7 @@ if args["statistics"]
     x = y = z = nothing
     for I=1:n_samples, J=1:n_samples
         sample_id = (I-1)*n_samples+J
-        filename = "$base_filename.$sample_id.csv"
+        filename = "$folder/sample-$sample_id.csv"
         sample_df = CSV.read(filename, DataFrame)
         u = sample_df[!, "u"]
         v = sample_df[!, "v"]
@@ -105,11 +108,9 @@ if args["statistics"]
         ψ = [ψu[L[K,1]] * ψI[L[K,2]] for K=1:dm]
         for K = 1:dm
             c = ψ[K]*w[I, J]/τ[K]
-            for i = 1:cnt
-                U[i, K] += u[i] * c
-                V[i, K] += v[i] * c
-                P[i, K] += p[i] * c
-            end
+            U[:, K] .+= u .* c
+            V[:, K] .+= v .* c
+            P[:, K] .+= p .* c
         end
         if sample_id == 1
             global x = sample_df[!, "x"]
@@ -122,11 +123,9 @@ if args["statistics"]
 
     function compute_statistics(v)
         s = zeros(cnt, 2)
-        for i = 1:cnt
-            s[i, 1] = v[i, 1]
-            for K = 2:dm
-                s[i, 2] += τ[K] * v[i, K]^2
-            end
+        s[:, 1] .= v[:, 1]
+        for K = 2:dm
+            s[:, 2] .+= τ[K] .* v[:, K] .^ 2
         end
         return s
     end
@@ -146,5 +145,5 @@ if args["statistics"]
         "Var[p]"=>p_stat[:,2]
     )
 
-    CSV.write("$base_filename.statistics.csv", stat_df)
+    CSV.write("$folder/statistics.csv", stat_df)
 end
