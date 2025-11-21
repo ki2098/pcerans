@@ -20,12 +20,14 @@ if !args["samples"] && !args["statistics"]
     args["statistics"] = true
 end
 
-params = JSON.parsefile("u_sampling_setup.json")
-
-det_params = deepcopy(params)
-
 degree = 5
 n_samples = degree*2
+
+params = JSON.parsefile("u-sampling-setup.json")
+folder = "data/u-nipce-$(n_samples)-samples"
+mkpath(folder)
+
+det_params = deepcopy(params)
 
 function get_op_and_transform(var)
     if var["type"] == "normal"
@@ -40,7 +42,6 @@ end
 
 op, scale, offset = get_op_and_transform(params["inlet u"])
 ξ = op.quad.nodes
-base_filename = "data/u_nipce_sample"
 println("ξ = $ξ")
 println("uin = $(scale)ξ + $offset")
 
@@ -52,7 +53,7 @@ if args["samples"]
     i_sample = 1
     @time "$n_samples niPCE samples" while i_sample <= n_samples
         println("niPCE sample $i_sample/$n_samples")
-        det_params["output"] = "$base_filename.$i_sample.csv"
+        det_params["output"] = "$folder/sample-$i_sample.csv"
         det_params["inlet u"] = uin[i_sample]
         try
             PdRans.solve(det_params)
@@ -76,7 +77,7 @@ if args["statistics"]
     P = zeros(cnt, degree+1)
     x = y = z = nothing
     for i_sample = 1:n_samples
-        filename = "$base_filename.$i_sample.csv"
+        filename = "$folder/sample-$i_sample.csv"
         sample_df = CSV.read(filename, DataFrame)
         u = sample_df[!, "u"]
         v = sample_df[!, "v"]
@@ -125,5 +126,5 @@ if args["statistics"]
         "Var[p]"=>p_stat[:,2]
     )
 
-    CSV.write("$base_filename.statistics.csv", stat_df)
+    CSV.write("$folder/statistics.csv", stat_df)
 end

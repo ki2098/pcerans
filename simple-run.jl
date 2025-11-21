@@ -3,6 +3,6 @@ include("src/solve.jl")
 using JSON
 using .PdRans
 
-params = JSON.parsefile("simple_setup.json")
+params = JSON.parsefile("simple-setup.json")
 
 PdRans.solve(params)

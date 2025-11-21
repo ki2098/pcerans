@@ -2,7 +2,7 @@ using JSON
 include("src/solve.jl")
 using .PdRans
 
-params = JSON.parsefile("u_sampling_setup.json")
+params = JSON.parsefile("u-sampling-setup.json")
 
 det_params = deepcopy(params)
 
@@ -14,9 +14,9 @@ function get_mean(var)
         return 0.5*(range[1] + range[2])
     end
 end
-
+folder = "data/u-det"
+mkpath(folder)
 det_params["inlet u"] = get_mean(params["inlet u"])
-det_params["output"] = "data/u_det.csv"
-# println(JSON.json(det_params, 2))
+det_params["output"] = "$folder/result.csv"
 
 PdRans.solve(det_params)

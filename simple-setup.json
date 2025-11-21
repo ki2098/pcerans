@@ -1,9 +1,9 @@
 {
     "x range":[-5, 19],
     "y range":[-7.5, 7.5],
-    "divisions":[240, 150],
+    "divisions":[1200, 750],
 
-    "inlet u":{"type":"normal", "mean":1, "sd":0.1},
+    "inlet u":1,
     "inlet I":0.1,
     "inlet Lm":0.2,
 
@@ -19,5 +19,7 @@
         "coordinates":[
             [0, 0]
         ]
-    }
+    },
+
+    "output":"data/simple_res50.csv"
 }
