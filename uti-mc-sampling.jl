@@ -14,6 +14,9 @@ argset = ArgParseSettings()
     "--statistics"
         help = "calculate statistics"
         action = :store_true
+    "--shutup"
+        help = "do not display convergence history every step"
+        action = :store_true
     "n"
         help = "number of samples per dimension"
         required = true
@@ -59,11 +62,10 @@ if args["samples"]
         det_params["inlet I"] = tiin[J]
         while true
             try
-                PdRans.solve(det_params)
-                # println("Lucky!")
+                PdRans.solve(det_params; verbose=!args["shutup"])
                 break
             catch e
-                @warn "get error=$e"
+                @warn e stacktrace(catch_backtrace())
                 sleep(1)
             end
         end
@@ -106,9 +108,9 @@ if args["statistics"]
         end
         print("\rread $sample_id/$total_samples")
     end
-    u_var ./= total_samples
-    v_var ./= total_samples
-    p_var ./= total_samples
+    u_var ./= (total_samples - 1)
+    v_var ./= (total_samples - 1)
+    p_var ./= (total_samples - 1)
     println()
 
     stat_df = DataFrame(

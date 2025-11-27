@@ -13,6 +13,9 @@ argset = ArgParseSettings()
     "--statistics"
         help = "calculate statistics"
         action = :store_true
+    "--shutup"
+        help = "do not display convergence history every step"
+        action = :store_true
 end
 args = parse_args(argset)
 if !args["samples"] && !args["statistics"]
@@ -66,10 +69,11 @@ if args["samples"]
         det_params["inlet I"] = tiin[J]
         while true
             try
-                PdRans.solve(det_params)
+                PdRans.solve(det_params; verbose=!args["shutup"])
                 break
             catch e
-                println("err = $e, retry")
+                @warn e stacktrace(catch_backtrace())
+                sleep(1)
             end
         end
         println()

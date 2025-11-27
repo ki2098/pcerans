@@ -4,6 +4,9 @@ using CSV
 using DataFrames
 using Printf
 using Dates
+using Logging
+
+global_logger(SimpleLogger(stdout, Logging.Info))
 
 include("eq.jl")
 include("rans.jl")
@@ -237,21 +240,25 @@ function write_csv(path::String, so::Solver)
     println("written to $path")
 end
 
-function solve(params)
+function solve(params; verbose=true)
+    # dice = rand()
+    # if dice > 0.5
+    #     println(dice)
+    #     function dummy_kernel() end
+
+    #     CUDA.@sync @cuda threads=2^20 dummy_kernel()
+    # end
     solver, output_path = init(params)
     println("start time = $(now())")
     for step = 1:solver.maxstep
-        try
-            lsit, lserr, divmag = time_integral!(solver)
+        lsit, lserr, divmag = time_integral!(solver)
+        if verbose || step == solver.maxstep
             @printf(
                 "\rstep=%d, |div U|=%.3e, LS=(%4d, %.3e)",
                 step, divmag, lsit, lserr
             )
-            flush(stdout)
-        catch e
-            println(e)
-            break
         end
+        flush(stdout)
     end
     println()
     println("end time = $(now())")

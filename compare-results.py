@@ -15,11 +15,11 @@ prefix = args.prefix
 n_samples = args.n_samples
 plt_title = args.plt_title
 
-nipce_df = pd.read_csv(f"data/{prefix}-nipce-{n_samples[0]}-samples/statistics.csv")
-mcfew_df = pd.read_csv(f"data/{prefix}-mc-{n_samples[1]}-samples/statistics.csv")
-mcmid_df = pd.read_csv(f"data/{prefix}-mc-{n_samples[2]}-samples/statistics.csv")
-mcmany_df = pd.read_csv(f"data/{prefix}-mc-{n_samples[3]}-samples/statistics.csv")
-det_df = pd.read_csv(f"data/{prefix}-det/result.csv")
+nipce_df = pd.read_csv(f"{prefix}-nipce-{n_samples[0]}-samples/statistics.csv")
+mcfew_df = pd.read_csv(f"{prefix}-mc-{n_samples[1]}-samples/statistics.csv")
+mcmid_df = pd.read_csv(f"{prefix}-mc-{n_samples[2]}-samples/statistics.csv")
+mcmany_df = pd.read_csv(f"{prefix}-mc-{n_samples[3]}-samples/statistics.csv")
+det_df = pd.read_csv(f"{prefix}-det/result.csv")
 
 points = nipce_df[["x", "y"]].values
 
@@ -60,7 +60,7 @@ def plot_var(varname:str):
     plt.grid(True)
     plt.legend(loc=2)
     plt.title(plt_title)
-    plt.savefig(f"data/{prefix}_sampling_{varname}.png")
+    plt.savefig(f"{prefix}-{varname}.png")
 
 plot_var("E[u]")
 plot_var("Var[u]")

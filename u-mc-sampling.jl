@@ -5,6 +5,8 @@ using ArgParse
 using Dates
 using Distributions
 
+println(@__FILE__)
+
 argset = ArgParseSettings()
 @add_arg_table argset begin
     "--samples"
@@ -12,6 +14,9 @@ argset = ArgParseSettings()
         action = :store_true
     "--statistics"
         help = "calculate statistics"
+        action = :store_true
+    "--shutup"
+        help = "do not display convergence history every step"
         action = :store_true
     "n"
         help = "number of samples per dimension"
@@ -27,7 +32,7 @@ end
 n_samples = args["n"]
 
 params = JSON.parsefile("u-sampling-setup.json")
-folder = "data/u-mc-$(n_samples)-samples"
+folder = "$(params["prefix"])-mc-$(n_samples)-samples"
 mkpath(folder)
 
 det_params = deepcopy(params)
@@ -48,22 +53,25 @@ uin = get_dist(params["inlet u"])
 if args["samples"]
     include("src/solve.jl")
     using .PdRans
-
-    i_sample = 1
-    @time "$n_samples MC samples" while i_sample <= n_samples
+    start_time = now()
+    for i_sample=1:n_samples
         println("Monte Carlo sample $i_sample/$n_samples")
-        det_params["output"] = "$folder/$i_sample.csv"
+        det_params["output"] = "$folder/sample-$i_sample.csv"
         det_params["inlet u"] = uin[i_sample]
-        try
-            PdRans.solve(det_params)
-        catch e
-            @warn "get error=$e"
-            sleep(1)
-            continue
+        while true
+            try
+                PdRans.solve(det_params; verbose=!args["shutup"])
+                break
+            catch e
+                @warn e stacktrace(catch_backtrace())
+                sleep(1)
+            end
         end
-        global i_sample += 1
         println()
     end
+    end_time = now()
+    elapse = Dates.value(end_time-start_time)/1000
+    println("$n_samples MC samples took $(elapse)s")
 end
 
 if args["statistics"]
@@ -77,7 +85,7 @@ if args["statistics"]
     p_var  = zeros(cnt)
     x = y = z = nothing
     for i_sample = 1:n_samples
-        filename = "$folder/$i_sample.csv"
+        filename = "$folder/sample-$i_sample.csv"
         sample_df = CSV.read(filename, DataFrame)
         u = sample_df[!, "u"]
         v = sample_df[!, "v"]
@@ -101,9 +109,9 @@ if args["statistics"]
         end
         print("\rread $filename")
     end
-    u_var ./= n_samples
-    v_var ./= n_samples
-    p_var ./= n_samples
+    u_var ./= (n_samples - 1)
+    v_var ./= (n_samples - 1)
+    p_var ./= (n_samples - 1)
     println()
 
     stat_df = DataFrame(

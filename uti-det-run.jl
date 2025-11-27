@@ -1,6 +1,15 @@
 using JSON
+using ArgParse
 include("src/solve.jl")
 using .PdRans
+
+argset = ArgParseSettings()
+@add_arg_table argset begin
+    "--shutup"
+        help = "do not display convergence history every step"
+        action = :store_true
+end
+args = parse_args(argset)
 
 params = JSON.parsefile("uti-sampling-setup.json")
 
@@ -20,4 +29,12 @@ det_params["inlet u"] = get_mean(params["inlet u"])
 det_params["inlet I"] = get_mean(params["inlet I"])
 det_params["output"] = "$folder/result.csv"
 
-PdRans.solve(det_params)
+while true
+    try
+        PdRans.solve(det_params; verbose=!args["shutup"])
+        break
+    catch e
+        @warn e stacktrace(catch_backtrace())
+        sleep(1)
+    end
+end

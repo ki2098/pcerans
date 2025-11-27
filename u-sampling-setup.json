@@ -19,5 +19,7 @@
         "coordinates":[
             [0, 0]
         ]
-    }
+    },
+
+    "prefix":"data/u-1t"
 }

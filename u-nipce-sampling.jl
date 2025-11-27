@@ -5,6 +5,8 @@ using CSV
 using ArgParse
 using Dates
 
+println(@__FILE__)
+
 argset = ArgParseSettings()
 @add_arg_table argset begin
     "--samples"
@@ -12,6 +14,9 @@ argset = ArgParseSettings()
         action = :store_true
     "--statistics"
         help = "calculate statistics"
+        action = :store_true
+    "--shutup"
+        help = "do not display convergence history every step"
         action = :store_true
 end
 args = parse_args(argset)
@@ -24,7 +29,7 @@ degree = 5
 n_samples = degree*2
 
 params = JSON.parsefile("u-sampling-setup.json")
-folder = "data/u-nipce-$(n_samples)-samples"
+folder = "$(params["prefix"])-nipce-$(n_samples)-samples"
 mkpath(folder)
 
 det_params = deepcopy(params)
@@ -50,20 +55,26 @@ if args["samples"]
     using .PdRans
 
     uin = ξ .* scale .+ offset
-    i_sample = 1
-    @time "$n_samples niPCE samples" while i_sample <= n_samples
+
+    start_time = now()
+    for i_sample=1:n_samples
         println("niPCE sample $i_sample/$n_samples")
         det_params["output"] = "$folder/sample-$i_sample.csv"
         det_params["inlet u"] = uin[i_sample]
-        try
-            PdRans.solve(det_params)
-        catch e
-            println("err = $e, retry")
-            continue
+        while true
+            try
+                PdRans.solve(det_params; verbose=!args["shutup"])
+                break
+            catch e
+                @warn e stacktrace(catch_backtrace())
+                sleep(1)
+            end
         end
-        global i_sample += 1
         println()
     end
+    end_time = now()
+    elapse = Dates.value(end_time-start_time)/1000
+    println("$n_samples niPCE samples took $(elapse)s")
 end
 
 if args["statistics"]
