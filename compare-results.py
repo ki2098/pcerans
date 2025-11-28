@@ -43,9 +43,9 @@ def plot_var(varname:str):
 
     plt.figure(figsize=(5,6))
     plt.plot(mcfew_sample, y, label=f"Monte Carlo ({n_samples[1]} samples)", color="red", linewidth=1)
-    plt.plot(mcmid_sample, y, label=f"Monte Carlo ({n_samples[2]} samples)", color='black', linewidth=1)
-    plt.scatter(mcmany_sample[::2], y[::2], label=f"Monte Carlo ({n_samples[3]} samples)", c='green', marker='x', s=20)
-    plt.plot(nipce_sample, y, label=f"niPCE ({n_samples[0]} samples)", color="blue", linewidth=1)
+    plt.plot(mcmid_sample, y, label=f"Monte Carlo ({n_samples[2]} samples)", color='orange', linewidth=1)
+    plt.plot(mcmany_sample, y, label=f"Monte Carlo ({n_samples[3]} samples)", color="green", linewidth=1)
+    plt.scatter(nipce_sample[::2], y[::2], label=f"niPCE ({n_samples[0]} samples)", c='blue', marker='+', s=20)
     
     if varname == "E[u]":
         det_var = det_df["u"].values

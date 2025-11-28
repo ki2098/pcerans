@@ -32,7 +32,7 @@ n_samples = args["n"]
 total_samples = n_samples^2
 
 params = JSON.parsefile("uti-sampling-setup.json")
-folder = "data/uti-mc-$(total_samples)-samples"
+folder = "$(params["prefix"])-mc-$(total_samples)-samples"
 mkpath(folder)
 
 det_params = deepcopy(params)

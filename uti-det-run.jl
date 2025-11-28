@@ -23,7 +23,7 @@ function get_mean(var)
         return 0.5*(range[1] + range[2])
     end
 end
-folder = "data/uti-det"
+folder = "$(params["prefix"])-det"
 mkpath(folder)
 det_params["inlet u"] = get_mean(params["inlet u"])
 det_params["inlet I"] = get_mean(params["inlet I"])

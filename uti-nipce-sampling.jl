@@ -28,7 +28,7 @@ n_samples = degree*2
 total_samples = n_samples^2
 
 params = JSON.parsefile("uti-sampling-setup.json")
-folder = "data/uti-nipce-$(total_samples)-samples"
+folder = "$(params["prefix"])-nipce-$(total_samples)-samples"
 mkpath(folder)
 
 
