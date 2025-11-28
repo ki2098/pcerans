@@ -65,7 +65,9 @@ if args["samples"]
                 PdRans.solve(det_params; verbose=!args["shutup"])
                 break
             catch e
-                @warn e stacktrace(catch_backtrace())
+                bt = catch_backtrace()
+                s = sprint(Base.showerror, e, bt)
+                @warn s
                 sleep(1)
             end
         end
