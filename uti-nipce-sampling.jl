@@ -61,7 +61,9 @@ if args["samples"]
 
     uin = ξu .* scaleu .+ offsetu
     tiin = ξI .* scaleI .+ offsetI
-    @time "$(n_samples*n_samples) niPCE samples" for I=1:n_samples, J=1:n_samples
+
+    start_time = now()
+    for I=1:n_samples, J=1:n_samples
         sample_id = (I-1)*n_samples+J
         println("niPCE sample $sample_id/$total_samples")
         det_params["output"] = "$folder/sample-$sample_id.csv"
@@ -80,6 +82,9 @@ if args["samples"]
         end
         println()
     end
+    end_time = now()
+    elapse = Dates.value(end_time-start_time)/1000
+    println("$total_samples niPCE samples took $(elapse)s")
 end
 
 if args["statistics"]

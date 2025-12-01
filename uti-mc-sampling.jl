@@ -54,7 +54,9 @@ tiin = get_dist(params["inlet I"])
 if args["samples"]
     include("src/solve.jl")
     using .PdRans
-    @time "$total_samples MC samples" for I=1:n_samples,J=1:n_samples
+    
+    start_time = now()
+    for I=1:n_samples,J=1:n_samples
         sample_id = (I-1)*n_samples+J
         println("Monte Carlo sample $sample_id/$total_samples")
         det_params["output"] = "$folder/sample-$sample_id.csv"
@@ -73,6 +75,9 @@ if args["samples"]
         end
         println()
     end
+    end_time = now()
+    elapse = Dates.value(end_time-start_time)/1000
+    println("$total_samples MC samples took $(elapse)s")
 end
 
 if args["statistics"]

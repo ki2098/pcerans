@@ -6,7 +6,7 @@ julia uti-nipce-sampling.jl --shutup
 
 sleep 60
 
-julia uti-mc-sampling.jl 10 --shutup
+julia uti-mc-sampling.jl 20 --shutup
 
 sleep 60
 
@@ -15,3 +15,7 @@ julia uti-mc-sampling.jl 50 --shutup
 sleep 60
 
 julia uti-mc-sampling.jl 100 --shutup
+
+sleep 60
+
+julia uti-mc-sampling.jl 200 --shutup

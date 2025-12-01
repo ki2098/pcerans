@@ -6,7 +6,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('prefix')
-parser.add_argument('n_samples', nargs=4, type=int)
+parser.add_argument('n_samples', nargs=5, type=int)
 parser.add_argument('plt_title', type=str)
 
 args = parser.parse_args()
@@ -19,6 +19,7 @@ nipce_df = pd.read_csv(f"{prefix}-nipce-{n_samples[0]}-samples/statistics.csv")
 mcfew_df = pd.read_csv(f"{prefix}-mc-{n_samples[1]}-samples/statistics.csv")
 mcmid_df = pd.read_csv(f"{prefix}-mc-{n_samples[2]}-samples/statistics.csv")
 mcmany_df = pd.read_csv(f"{prefix}-mc-{n_samples[3]}-samples/statistics.csv")
+mcmore_df = pd.read_csv(f"{prefix}-mc-{n_samples[4]}-samples/statistics.csv")
 det_df = pd.read_csv(f"{prefix}-det/result.csv")
 
 points = nipce_df[["x", "y"]].values
@@ -41,10 +42,14 @@ def plot_var(varname:str):
     mcmany_var = mcmany_df[varname].values
     mcmany_sample = griddata(points, mcmany_var, line)
 
-    plt.figure(figsize=(5,6))
+    mcmore_var = mcmore_df[varname].values
+    mcmore_sample = griddata(points, mcmore_var, line)
+
+    plt.figure(figsize=(6,6))
     plt.plot(mcfew_sample, y, label=f"Monte Carlo ({n_samples[1]} samples)", color="red", linewidth=1)
     plt.plot(mcmid_sample, y, label=f"Monte Carlo ({n_samples[2]} samples)", color='orange', linewidth=1)
     plt.plot(mcmany_sample, y, label=f"Monte Carlo ({n_samples[3]} samples)", color="green", linewidth=1)
+    plt.plot(mcmore_sample, y, label=f"Monte Carlo ({n_samples[4]} samples)", color="gray", linewidth=1)
     plt.scatter(nipce_sample[::2], y[::2], label=f"niPCE ({n_samples[0]} samples)", c='blue', marker='+', s=20)
     
     if varname == "E[u]":
