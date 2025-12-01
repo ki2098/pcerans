@@ -1,3 +1,3 @@
 using CUDA
 
-CUDA.set_runtime_version!(v"$(ARGS[1])")
+CUDA.set_runtime_version!(VersionNumber(ARGS[1]))
