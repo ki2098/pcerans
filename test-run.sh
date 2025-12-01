@@ -6,7 +6,7 @@
 #PJM -j
 #PJM -o test-run.log
 
-module load cuda nvidia julia
+module load cuda julia
 
 julia scripts/cuda-hpc-setup.jl 12.2.2
 
