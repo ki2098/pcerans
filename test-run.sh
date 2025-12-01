@@ -6,6 +6,8 @@
 #PJM -j
 #PJM -o test-run.log
 
+module load cuda nvidia julia
+
 julia u-det-run.jl --shutup
 
 julia u-nipce-sampling.jl --shutup
