@@ -8,6 +8,8 @@
 
 module load cuda nvidia julia
 
+julia scripts/cuda-hpc-setup.jl 12.2.2
+
 julia u-det-run.jl --shutup
 
 julia u-nipce-sampling.jl --shutup
