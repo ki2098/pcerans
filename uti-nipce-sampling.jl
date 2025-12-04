@@ -24,7 +24,7 @@ if !args["samples"] && !args["statistics"]
 end
 
 degree = 5
-n_samples = degree*2
+n_samples = 26
 total_samples = n_samples^2
 
 params = JSON.parsefile("uti-sampling-setup.json")
@@ -96,16 +96,13 @@ if args["statistics"]
     wI = opI.quad.weights
     τI = computeSP2(opI)
 
-    opm = MultiOrthoPoly([opu, opI], degree)
-    dm = opm.dim
-    L = opm.ind .+ 1
-    w = [wu[I] * wI[J] for I=1:n_samples, J=1:n_samples]
-    τ = [τu[L[K,1]] * τI[L[K,2]] for K=1:dm]
-    println(τ)
+    w = [wu[i]*wI[j] for i=1:n_samples,j=1:n_samples]
+    τ = [τu[i]*τI[j] for i=1:degree+1,j=1:degree+1]
 
-    U = zeros(cnt, dm)
-    V = zeros(cnt, dm)
-    P = zeros(cnt, dm)
+    cnt = sz[1]*sz[2]
+    U = zeros(cnt, degree+1, degree+1)
+    V = zeros(cnt, degree+1, degree+1)
+    P = zeros(cnt, degree+1, degree+1)
     x = y = z = nothing
     for I=1:n_samples, J=1:n_samples
         sample_id = (I-1)*n_samples+J
@@ -114,29 +111,36 @@ if args["statistics"]
         u = sample_df[!, "u"]
         v = sample_df[!, "v"]
         p = sample_df[!, "p"]
-        ψu = evaluate(ξu[I], opu)
-        ψI = evaluate(ξI[J], opI)
-        ψ = [ψu[L[K,1]] * ψI[L[K,2]] for K=1:dm]
-        for K = 1:dm
-            c = ψ[K]*w[I, J]/τ[K]
-            U[:, K] .+= u .* c
-            V[:, K] .+= v .* c
-            P[:, K] .+= p .* c
+
+        for i=1:degree+1, j=1:degree+1
+            ψu = evaluate(i-1, ξu[I], opu)
+            ψI = evaluate(j-1, ξI[J], opI)
+            ψ = ψu*ψI
+            c = ψ*w[I,J]/τ[i,j]
+
+            U[:, i, j] .+= u .* c
+            V[:, i, j] .+= v .* c
+            P[:, i, j] .+= p .* c
+            
         end
-        if sample_id == 1
+
+        if I==1 && J==1
             global x = sample_df[!, "x"]
             global y = sample_df[!, "y"]
             global z = sample_df[!, "z"]
         end
+
         print("\rread $filename")
     end
     println()
 
     function compute_statistics(v)
         s = zeros(cnt, 2)
-        s[:, 1] .= v[:, 1]
-        for K = 2:dm
-            s[:, 2] .+= τ[K] .* v[:, K] .^ 2
+        s[:, 1] .= v[:, 1, 1]
+        for i=1:degree+1, j=1:degree+1
+            if !(i == 1 && j == 1)
+                s[:, 2] .+= (v[:, i, j] .^ 2) .* τ[i, j] 
+            end
         end
         return s
     end
