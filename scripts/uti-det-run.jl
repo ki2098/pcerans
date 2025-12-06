@@ -1,17 +1,21 @@
 using JSON
 using ArgParse
-include("src/solve.jl")
+include("../src/solve.jl")
 using .PdRans
 
 argset = ArgParseSettings()
 @add_arg_table argset begin
-    "--shutup"
+    "--skip-history"
         help = "do not display convergence history every step"
         action = :store_true
+    "file"
+        help = "setup file path"
+        required = true
+        arg_type = String
 end
 args = parse_args(argset)
 
-params = JSON.parsefile("uti-sampling-setup.json")
+params = JSON.parsefile(args["file"])
 
 det_params = deepcopy(params)
 
@@ -31,7 +35,7 @@ det_params["output"] = "$folder/result.csv"
 
 while true
     try
-        PdRans.solve(det_params; verbose=!args["shutup"])
+        PdRans.solve(det_params; show_history=!args["skip-history"])
         break
     catch e
         bt = catch_backtrace()

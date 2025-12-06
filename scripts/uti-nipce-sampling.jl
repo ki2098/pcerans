@@ -5,8 +5,6 @@ using CSV
 using ArgParse
 using Dates
 
-println(@__FILE__)
-
 argset = ArgParseSettings()
 @add_arg_table argset begin
     "--samples"
@@ -15,9 +13,21 @@ argset = ArgParseSettings()
     "--statistics"
         help = "calculate statistics"
         action = :store_true
-    "--shutup"
+    "--skip-history"
         help = "do not display convergence history every step"
         action = :store_true
+    "file"
+        help = "setup file path"
+        required = true
+        arg_type = String
+    "d"
+        help = "degree per dimension"
+        required = true
+        arg_type = Int
+    "n"
+        help = "number of nodes per dimension"
+        required = true
+        arg_type = Int
 end
 args = parse_args(argset)
 if !args["samples"] && !args["statistics"]
@@ -25,12 +35,14 @@ if !args["samples"] && !args["statistics"]
     args["statistics"] = true
 end
 
-degree = 5
-n_samples = degree*2
+degree = args["d"]
+n_samples = args["n"]
+total_samples = n_samples^2
 
-params = JSON.parsefile("u-sampling-setup.json")
-folder = "$(params["prefix"])-nipce-$(n_samples)-samples"
+params = JSON.parsefile(args["file"])
+folder = "$(params["prefix"])-nipce-$(total_samples)-samples"
 mkpath(folder)
+
 
 det_params = deepcopy(params)
 
@@ -45,25 +57,33 @@ function get_op_and_transform(var)
     end
 end
 
-op, scale, offset = get_op_and_transform(params["inlet u"])
-ξ = op.quad.nodes
-println("ξ = $ξ")
-println("uin = $(scale)ξ + $offset")
+opu, scaleu, offsetu = get_op_and_transform(params["inlet u"])
+ξu = opu.quad.nodes
+opI, scaleI, offsetI = get_op_and_transform(params["inlet I"])
+ξI = opI.quad.nodes
+println("ξu = $ξu")
+println("u = $(scaleu) ξu + $offsetu")
+println("ξI = $ξI")
+println("I = $(scaleI) ξI + $offsetI")
+total_samples = n_samples^2
 
 if args["samples"]
-    include("src/solve.jl")
+    include("../src/solve.jl")
     using .PdRans
 
-    uin = ξ .* scale .+ offset
+    uin = ξu .* scaleu .+ offsetu
+    tiin = ξI .* scaleI .+ offsetI
 
     start_time = now()
-    for i_sample=1:n_samples
-        println("niPCE sample $i_sample/$n_samples")
-        det_params["output"] = "$folder/sample-$i_sample.csv"
-        det_params["inlet u"] = uin[i_sample]
+    for I=1:n_samples, J=1:n_samples
+        sample_id = (I-1)*n_samples+J
+        println("niPCE sample $sample_id/$total_samples")
+        det_params["output"] = "$folder/sample-$sample_id.csv"
+        det_params["inlet u"] = uin[I]
+        det_params["inlet I"] = tiin[J]
         while true
             try
-                PdRans.solve(det_params; verbose=!args["shutup"])
+                PdRans.solve(det_params; show_history=!args["skip-history"])
                 break
             catch e
                 bt = catch_backtrace()
@@ -76,49 +96,62 @@ if args["samples"]
     end
     end_time = now()
     elapse = Dates.value(end_time-start_time)/1000
-    println("$n_samples niPCE samples took $(elapse)s")
+    println("$total_samples niPCE samples took $(elapse)s")
 end
 
 if args["statistics"]
-    w = op.quad.weights
-    τ = computeSP2(op)
-
     sz = params["divisions"]
     cnt = sz[1]*sz[2]
-    U = zeros(cnt, degree+1)
-    V = zeros(cnt, degree+1)
-    P = zeros(cnt, degree+1)
+
+    wu = opu.quad.weights
+    τu = computeSP2(opu)
+    wI = opI.quad.weights
+    τI = computeSP2(opI)
+
+    w = [wu[i]*wI[j] for i=1:n_samples,j=1:n_samples]
+    τ = [τu[i]*τI[j] for i=1:degree+1,j=1:degree+1]
+
+    cnt = sz[1]*sz[2]
+    U = zeros(cnt, degree+1, degree+1)
+    V = zeros(cnt, degree+1, degree+1)
+    P = zeros(cnt, degree+1, degree+1)
     x = y = z = nothing
-    for i_sample = 1:n_samples
-        filename = "$folder/sample-$i_sample.csv"
+    for I=1:n_samples, J=1:n_samples
+        sample_id = (I-1)*n_samples+J
+        filename = "$folder/sample-$sample_id.csv"
         sample_df = CSV.read(filename, DataFrame)
         u = sample_df[!, "u"]
         v = sample_df[!, "v"]
         p = sample_df[!, "p"]
-        ψ = evaluate(ξ[i_sample], op)
-        for i=1:cnt
-            for k=1:degree+1
-                c = ψ[k]*w[i_sample]/τ[k]
-                U[i, k] += u[i]*c
-                V[i, k] += v[i]*c
-                P[i, k] += p[i]*c
-            end
+
+        for i=1:degree+1, j=1:degree+1
+            ψu = evaluate(i-1, ξu[I], opu)
+            ψI = evaluate(j-1, ξI[J], opI)
+            ψ = ψu*ψI
+            c = ψ*w[I,J]/τ[i,j]
+
+            U[:, i, j] .+= u .* c
+            V[:, i, j] .+= v .* c
+            P[:, i, j] .+= p .* c
+            
         end
-        if i_sample == 1
+
+        if I==1 && J==1
             global x = sample_df[!, "x"]
             global y = sample_df[!, "y"]
             global z = sample_df[!, "z"]
         end
+
         print("\rread $filename")
     end
     println()
 
     function compute_statistics(v)
         s = zeros(cnt, 2)
-        for i=1:cnt
-            s[i, 1] = v[i, 1]
-            for k=2:degree+1
-                s[i, 2] += τ[k]*v[i, k]^2
+        s[:, 1] .= v[:, 1, 1]
+        for i=1:degree+1, j=1:degree+1
+            if !(i == 1 && j == 1)
+                s[:, 2] .+= (v[:, i, j] .^ 2) .* τ[i, j] 
             end
         end
         return s

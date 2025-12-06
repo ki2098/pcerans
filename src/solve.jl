@@ -240,7 +240,7 @@ function write_csv(path::String, so::Solver)
     println("written to $path")
 end
 
-function solve(params; verbose=true)
+function solve(params; show_history=true)
     # dice = rand()
     # if dice > 0.5
     #     println(dice)
@@ -252,10 +252,11 @@ function solve(params; verbose=true)
     println("start time = $(now())")
     for step = 1:solver.maxstep
         lsit, lserr, divmag = time_integral!(solver)
-        if verbose || step == solver.maxstep
+        solver_time = step*solver.dt
+        if show_history || step == solver.maxstep
             @printf(
-                "\rstep=%d, |div U|=%.3e, LS=(%4d, %.3e)",
-                step, divmag, lsit, lserr
+                "step=%d, t=%e, |div U|=%.3e, LS=(%4d, %.3e)\n",
+                step, solver_time, divmag, lsit, lserr
             )
         end
         flush(stdout)

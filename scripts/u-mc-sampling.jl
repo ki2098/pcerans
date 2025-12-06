@@ -15,9 +15,13 @@ argset = ArgParseSettings()
     "--statistics"
         help = "calculate statistics"
         action = :store_true
-    "--shutup"
+    "--skip-history"
         help = "do not display convergence history every step"
         action = :store_true
+    "file"
+        help = "setup file path"
+        required = true
+        arg_type = String
     "n"
         help = "number of samples per dimension"
         required = true
@@ -31,7 +35,7 @@ end
 
 n_samples = args["n"]
 
-params = JSON.parsefile("u-sampling-setup.json")
+params = JSON.parsefile(args["file"])
 folder = "$(params["prefix"])-mc-$(n_samples)-samples"
 mkpath(folder)
 
@@ -51,7 +55,7 @@ end
 uin = get_dist(params["inlet u"])
 
 if args["samples"]
-    include("src/solve.jl")
+    include("../src/solve.jl")
     using .PdRans
     start_time = now()
     for i_sample=1:n_samples
@@ -60,7 +64,7 @@ if args["samples"]
         det_params["inlet u"] = uin[i_sample]
         while true
             try
-                PdRans.solve(det_params; verbose=!args["shutup"])
+                PdRans.solve(det_params; show_history=!args["skip-history"])
                 break
             catch e
                 bt = catch_backtrace()
