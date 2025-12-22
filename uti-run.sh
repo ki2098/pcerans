@@ -8,14 +8,14 @@ sleep 60
 
 julia scripts/uti-mc-sampling.jl uti-sampling-setup.json 10 --skip-history
 
-sleep 60
+# sleep 60
 
-julia uti-mc-sampling.jl 20 --shutup
+# julia uti-mc-sampling.jl 20 --shutup
 
-sleep 60
+# sleep 60
 
-julia uti-mc-sampling.jl 100 --shutup
+# julia uti-mc-sampling.jl 100 --shutup
 
-sleep 60
+# sleep 60
 
-julia uti-mc-sampling.jl 200 --shutup
+# julia uti-mc-sampling.jl 200 --shutup
