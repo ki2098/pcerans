@@ -1,21 +1,21 @@
 #!/usr/bin/bash
 
-julia u-det-run.jl --shutup
+julia scripts/u-det-run.jl u-sampling-setup.json --skip-history
 
-julia u-nipce-sampling.jl --shutup
-
-sleep 60
-
-julia u-mc-sampling.jl 1000 --shutup
+julia scripts/u-nipce-sampling.jl u-sampling-setup.json 5 10 --skip-history
 
 sleep 60
 
-julia u-mc-sampling.jl 2000 --shutup
+julia scripts/u-mc-sampling.jl u-sampling-setup.json 10 --skip-history
 
 sleep 60
 
-julia u-mc-sampling.jl 5000 --shutup
+julia scripts/u-mc-sampling.jl u-sampling-setup.json 100 --skip-history
 
 sleep 60
 
-julia u-mc-sampling.jl 10000 --shutup
+julia scripts/u-mc-sampling.jl u-sampling-setup.json 500 --skip-history
+
+sleep 60
+
+julia scripts/u-mc-sampling.jl u-sampling-setup.json 1000 --skip-history
