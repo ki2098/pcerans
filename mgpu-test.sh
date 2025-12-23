@@ -9,4 +9,4 @@ MPIEXEC=~/.julia/bin/mpiexecjl
 
 module load julia
 
-$MPIEXEC -n 4 -outfile-pattern mgpu-test.%r.log -errfile-pattern mgpu-test-err.%r.log julia scripts/u-mc-mgpu.jl u-sampling-setup.json 100 --skip-history 2>&1
+$MPIEXEC -n 4 -outfile-pattern mgpu-test.%r.log julia scripts/u-mc-mgpu.jl u-sampling-setup.json 100 --skip-history 2>&1
