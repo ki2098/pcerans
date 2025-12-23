@@ -67,7 +67,7 @@ if args["samples"]
     n_gpu = length(devices)
     i_gpu = rank % n_gpu
     CUDA.device!(i_gpu)
-    println("rank %rank -> $(devices[i_gpu])")
+    println("rank %rank -> $(CUDA.device(CUDA.current_context()))")
 
     include("../src/solve.jl")
     using .PdRans
