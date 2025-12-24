@@ -78,6 +78,7 @@ if args["samples"]
         uin = nothing
     end
     uin = MPI.bcast(uin, root, comm)
+    println(uin)
 
     jobs = split_view([i for i=1:n_samples], size)[rank+1]
     for i_sample in jobs
