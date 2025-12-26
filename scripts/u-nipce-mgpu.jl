@@ -3,21 +3,10 @@ using DataFrames
 using CSV
 using ArgParse
 using Dates
-using Distributions
+using PolyChaos
 using MPI
 
 include("task-distributor.jl")
-
-function get_dist(var, n)
-    if var["type"] == "normal"
-        d = Normal(var["mean"], var["sd"])
-    elseif var["type"] == "uniform"
-        d = Uniform(var["range"]...)
-    end
-    println("dist = $d")
-    x = rand(d, n)
-    return x
-end
 
 println(@__FILE__)
 
@@ -36,8 +25,12 @@ argset = ArgParseSettings()
         help = "setup file path"
         required = true
         arg_type = String
+    "d"
+        help = "degree per dimension"
+        required = true
+        arg_type = Int
     "n"
-        help = "number of samples per dimension"
+        help = "number of nodes per dimension"
         required = true
         arg_type = Int
 end
@@ -47,12 +40,26 @@ if !args["samples"] && !args["statistics"]
     args["statistics"] = true
 end
 
+degree = args["d"]
 n_samples = args["n"]
 
 params = JSON.parsefile(args["file"])
-folder = "$(params["prefix"])-mc-$(n_samples)-samples"
+folder = "$(params["prefix"])-nipce-$(n_samples)-samples"
 
 det_params = deepcopy(params)
+
+function get_op_and_transform(var)
+    if var["type"] == "normal"
+        op = GaussOrthoPoly(degree, Nrec=n_samples+1, addQuadrature=true)
+        return op, var["sd"], var["mean"]
+    elseif var["type"] == "uniform"
+        op = Uniform01OrthoPoly(degree, Nrec=n_samples+1, addQuadrature=true)
+        range = var["range"]
+        return op, (range[2] - range[1]), range[1]
+    end
+end
+
+op, scale, offset = get_op_and_transform(params["inlet u"])
 
 MPI.Init()
 comm = MPI.COMM_WORLD
@@ -61,6 +68,7 @@ size = MPI.Comm_size(comm)
 root = 0
 
 start_time = now()
+
 if args["samples"]
     using CUDA
     devices = CUDA.devices()
@@ -74,7 +82,10 @@ if args["samples"]
 
     if rank == root
         mkpath(folder)
-        uin = get_dist(params["inlet u"], n_samples)
+        ξ = op.quad.nodes
+        println("ξ = $ξ")
+        println("uin = $(scale)ξ + $offset")
+        uin = ξ .* scale .+ offset
     else
         uin = nothing
     end
@@ -83,8 +94,9 @@ if args["samples"]
 
     jobs = split_view([i for i=1:n_samples], size)[rank+1]
     println("local jobs = $jobs")
+
     for i_sample in jobs
-        println("Monte Carlo sample $i_sample/$n_samples")
+        println("niPCE sample $i_sample/$n_samples")
         det_params["output"] = "$folder/sample-$i_sample.csv"
         det_params["inlet u"] = uin[i_sample]
         while true
@@ -101,20 +113,21 @@ if args["samples"]
         println()
     end
 end
+
 MPI.Barrier(comm)
 end_time = now()
 elapse = Dates.value(end_time-start_time)/1000
 println("$n_samples MC samples took $(elapse)s")
 
 if args["statistics"] && rank == root
+    w = op.quad.weights
+    τ = computeSP2(op)
+
     sz = params["divisions"]
     cnt = sz[1]*sz[2]
-    u_mean = zeros(cnt)
-    u_var  = zeros(cnt)
-    v_mean = zeros(cnt)
-    v_var  = zeros(cnt)
-    p_mean = zeros(cnt)
-    p_var  = zeros(cnt)
+    U = zeros(cnt, degree+1)
+    V = zeros(cnt, degree+1)
+    P = zeros(cnt, degree+1)
     x = y = z = nothing
     for i_sample = 1:n_samples
         filename = "$folder/sample-$i_sample.csv"
@@ -122,18 +135,15 @@ if args["statistics"] && rank == root
         u = sample_df[!, "u"]
         v = sample_df[!, "v"]
         p = sample_df[!, "p"]
-        du = u - u_mean
-        dv = v - v_mean
-        dp = p - p_mean
-        u_mean .+= du ./ i_sample
-        v_mean .+= dv ./ i_sample
-        p_mean .+= dp ./ i_sample
-        du2 = u - u_mean
-        dv2 = v - v_mean
-        dp2 = p - p_mean
-        u_var .+= du .* du2
-        v_var .+= dv .* dv2
-        p_var .+= dp .* dp2
+        ψ = evaluate(ξ[i_sample], op)
+        for i=1:cnt
+            for k=1:degree+1
+                c = ψ[k]*w[i_sample]/τ[k]
+                U[i, k] += u[i]*c
+                V[i, k] += v[i]*c
+                P[i, k] += p[i]*c
+            end
+        end
         if i_sample == 1
             global x = sample_df[!, "x"]
             global y = sample_df[!, "y"]
@@ -141,16 +151,32 @@ if args["statistics"] && rank == root
         end
         print("read $filename\n")
     end
-    u_var ./= (n_samples - 1)
-    v_var ./= (n_samples - 1)
-    p_var ./= (n_samples - 1)
     println()
 
+    function compute_statistics(v)
+        s = zeros(cnt, 2)
+        for i=1:cnt
+            s[i, 1] = v[i, 1]
+            for k=2:degree+1
+                s[i, 2] += τ[k]*v[i, k]^2
+            end
+        end
+        return s
+    end
+
+    u_stat = compute_statistics(U)
+    v_stat = compute_statistics(V)
+    p_stat = compute_statistics(P)
     stat_df = DataFrame(
-        "x"=>x, "y"=>y, "z"=>z,
-        "E[u]"=>u_mean, "Var[u]"=>u_var,
-        "E[v]"=>v_mean, "Var[v]"=>v_var,
-        "E[p]"=>p_mean, "Var[p]"=>p_var
+        "x"=>x,
+        "y"=>y,
+        "z"=>z,
+        "E[u]"=>u_stat[:,1],
+        "Var[u]"=>u_stat[:,2],
+        "E[v]"=>v_stat[:,1],
+        "Var[v]"=>v_stat[:,2],
+        "E[p]"=>p_stat[:,1],
+        "Var[p]"=>p_stat[:,2]
     )
 
     CSV.write("$folder/statistics.csv", stat_df)
