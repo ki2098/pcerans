@@ -32,8 +32,8 @@ argset = ArgParseSettings()
     "--skip-history"
         help = "do not display convergence history every step"
         action = :store_true
-    "file"
-        help = "setup file path"
+    "case"
+        help = "case path"
         required = true
         arg_type = String
     "n"
@@ -49,8 +49,10 @@ end
 
 n_samples = args["n"]
 
-params = JSON.parsefile(args["file"])
-folder = "$(params["prefix"])-mc-$(n_samples)-samples"
+case_path = args["case"]
+setup_path = "$case_path/setup.json"
+params = JSON.parsefile(setup_path)
+folder = "$case_path/data/mc-$(n_samples)-samples"
 
 det_params = deepcopy(params)
 
