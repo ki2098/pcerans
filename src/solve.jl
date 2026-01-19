@@ -241,13 +241,13 @@ function write_csv(path::String, so::Solver)
 end
 
 function solve(params; show_history=true)
-    # dice = rand()
-    # if dice > 0.5
-    #     println(dice)
-    #     function dummy_kernel() end
+    dice = rand()
+    if dice > 0.5
+        println(dice)
+        function dummy_kernel() end
 
-    #     CUDA.@sync @cuda threads=2^20 dummy_kernel()
-    # end
+        CUDA.@sync @cuda threads=2^20 dummy_kernel()
+    end
     solver, output_path = init(params)
     println("start time = $(now())")
     for step = 1:solver.maxstep
