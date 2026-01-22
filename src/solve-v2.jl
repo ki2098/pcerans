@@ -4,9 +4,6 @@ using CSV
 using DataFrames
 using Printf
 using Dates
-using Logging
-
-# global_logger(SimpleLogger(stdout, Logging.Info))
 
 include("eq.jl")
 include("rans.jl")
@@ -55,7 +52,7 @@ struct Solver
     maxstep
 end
 
-function init(params)
+function init(params; io=stdout)
     gc = 2
     xmin = params["x range"][1]
     xmax = params["x range"][2]
@@ -66,24 +63,24 @@ function init(params)
     sz = (nx + 2*gc, ny + 2*gc)
     dx = (xmax - xmin)/nx
     dy = (ymax - ymin)/ny
-    println("DOMAIN INFO")
-    println("\tgc = $gc")
-    println("\tx range = [$xmin, $xmax]")
-    println("\ty range = [$ymin, $ymax]")
-    println("\tdivison = ($(sz[1]-2*gc) $(sz[2]-2*gc))")
-    println("\tcell size = ($dx, $dy)")
+    println(io, "DOMAIN INFO")
+    println(io, "\tgc = $gc")
+    println(io, "\tx range = [$xmin, $xmax]")
+    println(io, "\ty range = [$ymin, $ymax]")
+    println(io, "\tdivison = ($(sz[1]-2*gc) $(sz[2]-2*gc))")
+    println(io, "\tcell size = ($dx, $dy)")
 
     maxtime = params["T"]
     dt = params["dt"]
     maxstep::Int = maxtime/dt
-    println("TIME INFO")
-    println("\tend time = $maxtime")
-    println("\tdt = $dt")
-    println("\ttotal steps = $maxstep")
+    println(io, "TIME INFO")
+    println(io, "\tend time = $maxtime")
+    println(io, "\tdt = $dt")
+    println(io, "\ttotal steps = $maxstep")
 
     nu = params["nu"]
-    println("CFD INFO")
-    println("\tnu = $nu")
+    println(io, "CFD INFO")
+    println(io, "\tnu = $nu")
 
     uin = params["inlet u"]
     Iin = params["inlet I"]
@@ -91,16 +88,16 @@ function init(params)
     kin = 1.5*(uin*Iin)^2
     εin = βasterisk^0.75 * kin^1.5 / Lm
     ωin = εin/(βasterisk*kin)
-    println("INLET INFO")
-    println("\tI = $Iin")
-    println("\tu = $uin")
-    println("\tk = $kin")
-    println("\tω = $ωin")
+    println(io, "INLET INFO")
+    println(io, "\tI = $Iin")
+    println(io, "\tu = $uin")
+    println(io, "\tk = $kin")
+    println(io, "\tω = $ωin")
 
     A, b, r, maxdiag = gpu_init_pressure_eq(dx, dy, sz, gc, nthread)
     ls = Ls(A, b, r, 1.2, maxdiag, 1000, 1e-4)
-    println("EQ INFO")
-    println("\tmax diag(A) = $maxdiag")
+    println(io, "EQ INFO")
+    println(io, "\tmax diag(A) = $maxdiag")
 
     x_h = [dx*(i - gc - 0.5) + xmin for i = 1:sz[1]]
     y_h = [dy*(j - gc - 0.5) + ymin for j = 1:sz[2]]
@@ -125,7 +122,7 @@ function init(params)
     fill!(k  , kin)
     fill!(ω  , ωin)
     fill!(nut, kin/ωin)
-    dfunc = prepare_dfunc(params["wind turbines"], x_h, y_h, dx, dy, sz)
+    dfunc = prepare_dfunc(params["wind turbines"], x_h, y_h, dx, dy, sz; io=io)
     
 
     so = Solver(
@@ -139,13 +136,12 @@ function init(params)
     )
 
     output_path = params["output"]
-    println("output to $output_path")
-    flush(stdout)
+    println(io, "output to $output_path")
 
     return so, output_path
 end
 
-function time_integral!(so::Solver)
+function time_integral!(so::Solver; io=stdout)
     so.ut .= so.u
     so.vt .= so.v
     so.kt .= so.k
@@ -202,7 +198,7 @@ function time_integral!(so::Solver)
     return lsit, lserr, divmag
 end
 
-function write_csv(path::String, so::Solver)
+function write_csv(path::String, so::Solver; io=stdout)
     u = Array(so.u)
     v = Array(so.v)
     p = Array(so.p)
@@ -237,7 +233,7 @@ function write_csv(path::String, so::Solver)
         divu = vec(@view divu[irange, jrange])
     )
     CSV.write(path, df)
-    println("written to $path")
+    println(io, "written to $path")
 end
 
 function solve(params; show_history=true)
@@ -248,22 +244,26 @@ function solve(params; show_history=true)
 
     #     CUDA.@sync @cuda threads=2^20 dummy_kernel()
     # end
-    solver, output_path = init(params)
-    println("start time = $(now())")
+    io = IOBuffer()
+    solver, output_path = init(params; io=io)
+    println(io, "start time = $(now())")
     for step = 1:solver.maxstep
-        lsit, lserr, divmag = time_integral!(solver)
+        lsit, lserr, divmag = time_integral!(solver; io=io)
         solver_time = step*solver.dt
         if show_history || step == solver.maxstep
             @printf(
+                io,
                 "step=%d, t=%e, |div U|=%.3e, LS=(%4d, %.3e)\n",
                 step, solver_time, divmag, lsit, lserr
             )
         end
         flush(stdout)
     end
-    println()
-    println("end time = $(now())")
-    write_csv(output_path, solver)
+    println(io, "end time = $(now())")
+    write_csv(output_path, solver; io=io)
+
+    logstr = String(take!(io))
+    return logstr
 end
 
 end

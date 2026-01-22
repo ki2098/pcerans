@@ -6,21 +6,21 @@ function intersec_len(interv1, interv2)
     return last(intersec) - first(intersec)
 end
 
-function prepare_dfunc(wt_info_params, x, y, dx, dy, sz)
+function prepare_dfunc(wt_info_params, x, y, dx, dy, sz; io=stdout)
     diameter = wt_info_params["diameter"]
     model_diameter = 1.5*diameter
     thick = wt_info_params["thick"]
     C = wt_info_params["C"]
     wt_array_params = wt_info_params["coordinates"]
     wt_count = length(wt_array_params)
-    println("PD MODEL INFO")
-    println("\tC = $C")
-    println("\tturbine thickness = $thick")
-    println("\tturbine diameter = $diameter")
-    println("\tmodeled turbine diameter = $model_diameter")
+    println(io, "PD MODEL INFO")
+    println(io, "\tC = $C")
+    println(io, "\tturbine thickness = $thick")
+    println(io, "\tturbine diameter = $diameter")
+    println(io, "\tmodeled turbine diameter = $model_diameter")
     for t = 1:wt_count
         wt_xy = wt_array_params[t]
-        println("\tturbine $t at ($(wt_xy[1]), $(wt_xy[2]))")
+        println(io, "\tturbine $t at ($(wt_xy[1]), $(wt_xy[2]))")
     end
     dfunc = zeros(sz...)
     for j = 1:sz[2], i = 1:sz[1]
