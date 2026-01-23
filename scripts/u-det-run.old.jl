@@ -1,7 +1,6 @@
 using JSON
 using ArgParse
-
-include("../src/solve-v2.jl")
+include("../src/solve.jl")
 using .PdRans
 
 println(@__FILE__)
@@ -11,18 +10,16 @@ argset = ArgParseSettings()
     "--skip-history"
         help = "do not display convergence history every step"
         action = :store_true
-    "case"
-        help = "case path"
+    "file"
+        help = "setup file path"
         required = true
         arg_type = String
 end
 args = parse_args(argset)
 
-case_path = args["case"]
-setup_path = "$case_path/setup.json"
-params = JSON.parsefile(setup_path)
-folder = "$case_path/data/det"
-mkpath(folder)
+params = JSON.parsefile(args["file"])
+
+det_params = deepcopy(params)
 
 function get_mean(var)
     if var["type"] == "normal"
@@ -32,14 +29,14 @@ function get_mean(var)
         return 0.5*(range[1] + range[2])
     end
 end
-det_params = deepcopy(params)
+folder = "$(params["prefix"])-det"
+mkpath(folder)
 det_params["inlet u"] = get_mean(params["inlet u"])
 det_params["output"] = "$folder/result.csv"
 
 while true
     try
-        logstr = PdRans.solve(det_params; show_history=!args["skip-history"])
-        print("$logstr\n")
+        PdRans.solve(det_params; show_history=!args["skip-history"])
         break
     catch e
         bt = catch_backtrace()

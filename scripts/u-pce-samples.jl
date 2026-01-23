@@ -44,7 +44,7 @@ n_samples = args["n"]
 case_path = args["case"]
 setup_path = "$case_path/setup.json"
 params = JSON.parsefile(setup_path)
-folder = "$case_path/data/nipce-$(n_samples)-samples"
+folder = "$case_path/data/pce-$(n_samples)-samples"
 
 function get_op_and_transform(var, n)
     if var["type"] == "normal"
