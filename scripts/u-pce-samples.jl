@@ -72,14 +72,14 @@ if args["samples"]
     using .PdRans
 
     mkpath(folder)
-    mylock = ReentrantLock()
+    # mylock = ReentrantLock()
 
     @threads for i_sample = 1:n_samples
         rank = threadid()
         ngpu = length(CUDA.devices())
         gpuid = (rank)%ngpu
         CUDA.device!(gpuid)
-        logstr = "job=$i_sample/$n_samples\ntid=$rank\ngpu=$(CUDA.device())\n"
+        headstr = "job=$i_sample/$n_samples\ntid=$rank\ngpu=$(CUDA.device())\n"
 
         det_params = deepcopy(params)
         det_params["output"] = "$folder/sample-$i_sample.csv"
@@ -87,9 +87,8 @@ if args["samples"]
 
         while true
             try
-                solve_logstr = PdRans.solve(det_params; show_history=!args["skip-history"])
-                logstr = logstr * solve_logstr
-                print("$logstr\n")
+                solvestr = PdRans.solve(det_params; show_history=!args["skip-history"])
+                print("$headstr$solvestr\n")
                 break
             catch e
                 bt = catch_backtrace()
@@ -103,7 +102,7 @@ end
 
 end_time = now()
 elapse = Dates.value(end_time-start_time)/1000
-println("$n_samples MC samples took $(elapse)s")
+println("$n_samples PCE samples took $(elapse)s")
 
 if args["statistics"]
     w = op.quad.weights
