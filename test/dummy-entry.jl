@@ -1,0 +1,3 @@
+using MyDummyModule
+
+MyDummyModule.main()

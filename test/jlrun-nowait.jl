@@ -1,8 +1,8 @@
-cmd = `ls xxx`
+# cmd = `sh -c 'bin/csegfault'`
+cmd = `sh -c 'julia segfault.jl'`
 try
     io = IOBuffer()
-    p = run(cmd, devnull, io, io; wait=false)
-    wait(p)
+    run(cmd, devnull, io, io)
     output = String(take!(io))
     print("cmd's message: $output")
 catch e
