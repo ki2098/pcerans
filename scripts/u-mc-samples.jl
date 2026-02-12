@@ -35,7 +35,8 @@ if !args["samples"] && !args["statistics"]
     args["statistics"] = true
 end
 
-n_samples = args["n"]
+samples_per_dim = args["n"]
+n_samples = samples_per_dim
 
 case_path = args["case"]
 setup_path = "$case_path/setup.json"
@@ -53,8 +54,8 @@ function get_dist(var, n)
     return x
 end
 
-uin = get_dist(params["inlet u"], n_samples)
-println("samples = $uin")
+uin = get_dist(params["inlet u"], samples_per_dim)
+println("uin = $uin")
 
 start_time = now()
 
